@@ -4,6 +4,7 @@ import { defineComponent } from "vue";
 import jwtDecode from "jwt-decode";
 import { Terminal } from "@xterm/xterm";
 import { AgentSocket } from "../../../common/agent-socket";
+import { hasRole, ROLE_ADMIN, ROLE_OPERATOR } from "../../../common/roles";
 
 let socket : Socket;
 
@@ -29,6 +30,7 @@ export default defineComponent({
             loggedIn: false,
             allowLoginDialog: false,
             username: null,
+            userRole: null,
             composeTemplate: "",
 
             stackList: {},
@@ -67,6 +69,15 @@ export default defineComponent({
                 }
             }
             return list;
+        },
+
+        isAdmin() {
+            return hasRole(this.userRole, ROLE_ADMIN);
+        },
+
+        // Can start / stop / restart / update existing stacks
+        canOperate() {
+            return hasRole(this.userRole, ROLE_OPERATOR);
         },
 
         usernameFirstChar() {
@@ -155,13 +166,7 @@ export default defineComponent({
             }
 
             this.socketIO.initedSocketIO = true;
-            let url : string;
-            const env = process.env.NODE_ENV || "production";
-            if (env === "development" || localStorage.dev === "dev") {
-                url = location.protocol + "//" + location.hostname + ":5001";
-            } else {
-                url = location.protocol + "//" + location.host;
-            }
+            const url = this.backendURL();
 
             let connectingMsgTimeout = setTimeout(() => {
                 this.socketIO.connecting = true;
@@ -225,6 +230,10 @@ export default defineComponent({
 
             socket.on("info", (info) => {
                 this.info = info;
+            });
+
+            socket.on("userInfo", (userInfo) => {
+                this.userRole = userInfo.role;
             });
 
             socket.on("autoLogin", () => {
@@ -300,6 +309,19 @@ export default defineComponent({
          */
         storage() : Storage {
             return (this.remember) ? localStorage : sessionStorage;
+        },
+
+        /**
+         * URL of the backend. In development, the frontend (vite) and the backend run on different ports.
+         * @returns {string}
+         */
+        backendURL() : string {
+            const env = process.env.NODE_ENV || "production";
+            if (env === "development" || localStorage.dev === "dev") {
+                return location.protocol + "//" + location.hostname + ":5001";
+            } else {
+                return location.protocol + "//" + location.host;
+            }
         },
 
         getSocket() : Socket {
@@ -386,6 +408,7 @@ export default defineComponent({
             this.socketIO.token = null;
             this.loggedIn = false;
             this.username = null;
+            this.userRole = null;
             this.clearData();
         },
 

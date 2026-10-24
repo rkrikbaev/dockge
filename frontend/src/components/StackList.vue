@@ -49,7 +49,8 @@
         </div>
         <div ref="stackList" class="stack-list" :class="{ scrollbar: scrollbar }" :style="stackListStyle">
             <div v-if="agentStackList[0] && agentStackList[0].stacks.length === 0" class="text-center mt-3">
-                <router-link to="/compose">{{ $t("addFirstStackMsg") }}</router-link>
+                <router-link v-if="$root.isAdmin" to="/compose">{{ $t("addFirstStackMsg") }}</router-link>
+                <span v-else>{{ $t("noStacks") }}</span>
             </div>
             <div v-for="(agent, agentIndex) in agentStackList" :key="agentIndex" class="stack-list-inner">
                 <div

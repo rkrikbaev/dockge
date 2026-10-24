@@ -21,32 +21,32 @@
                         {{ $t("saveStackDraft") }}
                     </button>
 
-                    <button v-if="!isEditMode" class="btn btn-secondary" :disabled="processing" @click="enableEditMode">
+                    <button v-if="!isEditMode && $root.isAdmin" class="btn btn-secondary" :disabled="processing" @click="enableEditMode">
                         <font-awesome-icon icon="pen" class="me-1" />
                         {{ $t("editStack") }}
                     </button>
 
-                    <button v-if="!isEditMode && !active" class="btn btn-primary" :disabled="processing" @click="startStack">
+                    <button v-if="!isEditMode && !active && $root.canOperate" class="btn btn-primary" :disabled="processing" @click="startStack">
                         <font-awesome-icon icon="play" class="me-1" />
                         {{ $t("startStack") }}
                     </button>
 
-                    <button v-if="!isEditMode && active" class="btn btn-normal " :disabled="processing" @click="restartStack">
+                    <button v-if="!isEditMode && active && $root.canOperate" class="btn btn-normal " :disabled="processing" @click="restartStack">
                         <font-awesome-icon icon="rotate" class="me-1" />
                         {{ $t("restartStack") }}
                     </button>
 
-                    <button v-if="!isEditMode" class="btn btn-normal" :disabled="processing" @click="updateStack">
+                    <button v-if="!isEditMode && $root.canOperate" class="btn btn-normal" :disabled="processing" @click="updateStack">
                         <font-awesome-icon icon="cloud-arrow-down" class="me-1" />
                         {{ $t("updateStack") }}
                     </button>
 
-                    <button v-if="!isEditMode && active" class="btn btn-normal" :disabled="processing" @click="stopStack">
+                    <button v-if="!isEditMode && active && $root.canOperate" class="btn btn-normal" :disabled="processing" @click="stopStack">
                         <font-awesome-icon icon="stop" class="me-1" />
                         {{ $t("stopStack") }}
                     </button>
 
-                    <BDropdown right text="" variant="normal">
+                    <BDropdown v-if="$root.canOperate" right text="" variant="normal">
                         <BDropdownItem @click="downStack">
                             <font-awesome-icon icon="stop" class="me-1" />
                             {{ $t("downStack") }}
@@ -54,8 +54,35 @@
                     </BDropdown>
                 </div>
 
+                <!-- Export / Import configuration -->
+                <div class="btn-group me-2" role="group">
+                    <BDropdown v-if="$root.isAdmin" right variant="normal" :disabled="processing">
+                        <template #button-content>
+                            <font-awesome-icon icon="download" class="me-1" />
+                            {{ $t("exportStack") }}
+                        </template>
+                        <BDropdownItem @click="exportStack(true)">
+                            {{ $t("exportStackWithEnv") }}
+                        </BDropdownItem>
+                        <BDropdownItem @click="exportStack(false)">
+                            {{ $t("exportComposeOnly") }}
+                        </BDropdownItem>
+                    </BDropdown>
+                    <!-- Non-admin users cannot read .env, so only compose.yaml can be exported -->
+                    <button v-else class="btn btn-normal" :disabled="processing" @click="exportStack(false)">
+                        <font-awesome-icon icon="download" class="me-1" />
+                        {{ $t("exportStack") }}
+                    </button>
+
+                    <button v-if="isEditMode" class="btn btn-normal" :disabled="processing" @click="$refs.importFile.click()">
+                        <font-awesome-icon icon="upload" class="me-1" />
+                        {{ $t("importStack") }}
+                    </button>
+                </div>
+                <input ref="importFile" type="file" class="d-none" accept=".json,.yaml,.yml,application/json,application/x-yaml,text/yaml" @change="importStack">
+
                 <button v-if="isEditMode && !isAdd" class="btn btn-normal" :disabled="processing" @click="discardStack">{{ $t("discardStack") }}</button>
-                <button v-if="!isEditMode" class="btn btn-danger" :disabled="processing" @click="showDeleteDialog = !showDeleteDialog">
+                <button v-if="!isEditMode && $root.isAdmin" class="btn btn-danger" :disabled="processing" @click="showDeleteDialog = !showDeleteDialog">
                     <font-awesome-icon icon="trash" class="me-1" />
                     {{ $t("deleteStack") }}
                 </button>
@@ -277,6 +304,11 @@ services:
       - "8080:80"
 `;
 const envDefault = "# VARIABLE=value #comment";
+
+// File format of an exported stack (compose.yaml + .env in one file)
+const EXPORT_FORMAT = "dockge-stack";
+const EXPORT_FORMAT_VERSION = 1;
+const IMPORT_MAX_SIZE = 1024 * 1024;
 
 let yamlErrorTimeout = null;
 
@@ -770,6 +802,106 @@ export default {
 
         enableEditMode() {
             this.isEditMode = true;
+        },
+
+        /**
+         * Download the current configuration (including unsaved changes in the editor)
+         * @param {boolean} withEnv true: compose.yaml + .env as one .json file, false: compose.yaml only
+         */
+        exportStack(withEnv) {
+            const name = this.stack.name || "stack";
+            let content;
+            let fileName;
+            let type;
+
+            if (withEnv) {
+                content = JSON.stringify({
+                    format: EXPORT_FORMAT,
+                    version: EXPORT_FORMAT_VERSION,
+                    name: this.stack.name,
+                    composeYAML: this.stack.composeYAML,
+                    composeENV: this.stack.composeENV,
+                }, null, 4);
+                fileName = `${name}.dockge.json`;
+                type = "application/json";
+            } else {
+                content = this.stack.composeYAML;
+                fileName = `${name}.compose.yaml`;
+                type = "application/x-yaml";
+            }
+
+            const url = URL.createObjectURL(new Blob([ content ], { type }));
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = fileName;
+            link.click();
+            URL.revokeObjectURL(url);
+        },
+
+        /**
+         * Load a configuration file into the editor. It is not saved until the user clicks Save / Deploy.
+         * Accepts a file exported by exportStack(), or a plain compose.yaml
+         * @param {Event} event change event of the file input
+         */
+        async importStack(event) {
+            const file = event.target.files[0];
+
+            // Reset, so the same file can be selected again
+            event.target.value = "";
+
+            if (!file) {
+                return;
+            }
+
+            try {
+                if (file.size > IMPORT_MAX_SIZE) {
+                    throw new Error(this.$t("importFileTooLarge"));
+                }
+
+                const text = await file.text();
+                let composeYAML;
+                let composeENV;
+                let name;
+
+                if (file.name.toLowerCase().endsWith(".json")) {
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        throw new Error(this.$t("importInvalidFile"));
+                    }
+                    if (data?.format !== EXPORT_FORMAT || typeof data.composeYAML !== "string") {
+                        throw new Error(this.$t("importInvalidFile"));
+                    }
+                    composeYAML = data.composeYAML;
+                    if (typeof data.composeENV === "string") {
+                        composeENV = data.composeENV;
+                    }
+                    if (typeof data.name === "string") {
+                        name = data.name;
+                    }
+                } else {
+                    composeYAML = text;
+                }
+
+                // Validate before replacing the editor content
+                this.yamlToJSON(composeYAML);
+
+                this.stack.composeYAML = composeYAML;
+                if (composeENV !== undefined) {
+                    this.stack.composeENV = composeENV;
+                }
+
+                // Only a new stack can take the name from the file
+                if (this.isAdd && !this.stack.name && name) {
+                    this.stack.name = name.toLowerCase();
+                }
+
+                this.yamlCodeChange();
+                this.$root.toastSuccess(this.$t("importSuccess", [ file.name ]));
+            } catch (e) {
+                this.$root.toastError(`${this.$t("importFailed")}: ${e.message}`);
+            }
         },
 
         checkYAML() {

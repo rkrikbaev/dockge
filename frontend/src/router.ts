@@ -7,6 +7,7 @@ import DashboardHome from "./pages/DashboardHome.vue";
 import Console from "./pages/Console.vue";
 import Compose from "./pages/Compose.vue";
 import ContainerTerminal from "./pages/ContainerTerminal.vue";
+import ContainerFiles from "./pages/ContainerFiles.vue";
 
 const Settings = () => import("./pages/Settings.vue");
 
@@ -15,6 +16,7 @@ import Appearance from "./components/settings/Appearance.vue";
 import General from "./components/settings/General.vue";
 const Security = () => import("./components/settings/Security.vue");
 const GlobalEnv = () => import("./components/settings/GlobalEnv.vue");
+const Users = () => import("./components/settings/Users.vue");
 import About from "./components/settings/About.vue";
 
 const routes = [
@@ -49,6 +51,11 @@ const routes = [
                                 name: "containerTerminal",
                             },
                             {
+                                path: "/files/:stackName/:serviceName",
+                                component: ContainerFiles,
+                                name: "containerFiles",
+                            },
+                            {
                                 path: "/terminal/:stackName/:serviceName/:type/:endpoint",
                                 component: ContainerTerminal,
                                 name: "containerTerminalEndpoint",
@@ -78,6 +85,10 @@ const routes = [
                             {
                                 path: "security",
                                 component: Security,
+                            },
+                            {
+                                path: "users",
+                                component: Users,
                             },
                             {
                                 path: "globalEnv",

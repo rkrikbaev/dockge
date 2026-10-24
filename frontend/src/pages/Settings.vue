@@ -73,7 +73,9 @@ export default {
         },
 
         subMenus() {
-            return {
+            // Only admin can change the server settings
+            const adminOnly = [ "general", "users", "globalEnv" ];
+            const menus = {
                 general: {
                     title: this.$t("general"),
                 },
@@ -83,6 +85,9 @@ export default {
                 security: {
                     title: this.$t("Security"),
                 },
+                users: {
+                    title: this.$t("Users"),
+                },
                 globalEnv: {
                     title: this.$t("GlobalEnv"),
                 },
@@ -90,17 +95,31 @@ export default {
                     title: this.$t("About"),
                 },
             };
+
+            if (!this.$root.isAdmin) {
+                for (const key of adminOnly) {
+                    delete menus[key];
+                }
+            }
+            return menus;
         },
     },
 
     watch: {
         "$root.isMobile"() {
             this.loadGeneralPage();
-        }
+        },
+
+        // The role is received after login, which may happen after this page is mounted
+        "$root.userRole"() {
+            this.loadSettings();
+        },
     },
 
     mounted() {
-        this.loadSettings();
+        if (this.$root.userRole) {
+            this.loadSettings();
+        }
         this.loadGeneralPage();
     },
 
@@ -118,6 +137,16 @@ export default {
 
         /** Load settings from server */
         loadSettings() {
+            // Non-admin users cannot read the server settings.
+            // Auth must be enabled, otherwise everyone would be logged in as admin.
+            if (!this.$root.isAdmin) {
+                this.settings = {
+                    disableAuth: false,
+                };
+                this.settingsLoaded = true;
+                return;
+            }
+
             this.$root.getSocket().emit("getSettings", (res) => {
                 this.settings = res.data;
                 if (this.settings.checkUpdate === undefined) {

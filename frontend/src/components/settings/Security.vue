@@ -80,7 +80,7 @@
                 </div>
             </div>
 
-            <div class="my-4">
+            <div v-if="$root.isAdmin" class="my-4">
                 <!-- Advanced -->
                 <h5 class="my-4 settings-subheading">{{ $t("Advanced") }}</h5>
 

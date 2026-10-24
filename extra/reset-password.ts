@@ -31,7 +31,8 @@ export const main = async () => {
     try {
         // No need to actually reset the password for testing, just make sure no connection problem. It is ok for now.
         if (!process.env.TEST_BACKEND) {
-            const user = await R.findOne("user");
+            // Reset the first admin, so that the admin can manage other users after that
+            const user = await R.findOne("user", " role = 'admin' ORDER BY id ");
             if (! user) {
                 throw new Error("user not found, have you installed?");
             }

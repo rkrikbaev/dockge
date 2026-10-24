@@ -27,12 +27,14 @@
                     </div>
 
                     <!-- Docker Run -->
-                    <h2 class="mb-3">{{ $t("Docker Run") }}</h2>
-                    <div class="mb-3">
-                        <textarea id="name" v-model="dockerRunCommand" type="text" class="form-control docker-run shadow-box" required placeholder="docker run ..."></textarea>
-                    </div>
+                    <template v-if="$root.isAdmin">
+                        <h2 class="mb-3">{{ $t("Docker Run") }}</h2>
+                        <div class="mb-3">
+                            <textarea id="name" v-model="dockerRunCommand" type="text" class="form-control docker-run shadow-box" required placeholder="docker run ..."></textarea>
+                        </div>
 
-                    <button class="btn-normal btn mb-4" @click="convertDockerRun">{{ $t("Convert to Compose") }}</button>
+                        <button class="btn-normal btn mb-4" @click="convertDockerRun">{{ $t("Convert to Compose") }}</button>
+                    </template>
                 </div>
                 <!-- Right -->
                 <div class="col-md-5">
@@ -56,7 +58,7 @@
                             </template>
 
                             <!-- Edit Name  -->
-                            <font-awesome-icon v-if="agentItem.name !== ''" icon="pen-to-square" @click="showEditAgentNameDialog[agentItem.name] = !showEditAgentNameDialog[agentItem.Name]" />
+                            <font-awesome-icon v-if="$root.isAdmin && agentItem.name !== ''" icon="pen-to-square" @click="showEditAgentNameDialog[agentItem.name] = !showEditAgentNameDialog[agentItem.Name]" />
 
                             <!-- Edit Dialog -->
                             <BModal v-model="showEditAgentNameDialog[agentItem.name]" :no-close-on-backdrop="true" :close-on-esc="true" :okTitle="$t('Update Name')" okVariant="info" @ok="updateName(agentItem.url, agentItem.updatedName)">
@@ -65,7 +67,7 @@
                             </BModal>
 
                             <!-- Remove Button -->
-                            <font-awesome-icon v-if="endpoint !== ''" class="ms-2 remove-agent" icon="trash" @click="showRemoveAgentDialog[agentItem.url] = !showRemoveAgentDialog[agentItem.url]" />
+                            <font-awesome-icon v-if="$root.isAdmin && endpoint !== ''" class="ms-2 remove-agent" icon="trash" @click="showRemoveAgentDialog[agentItem.url] = !showRemoveAgentDialog[agentItem.url]" />
 
                             <!-- Remove Agent Dialog -->
                             <BModal v-model="showRemoveAgentDialog[agentItem.url]" :okTitle="$t('removeAgent')" okVariant="danger" @ok="removeAgent(agentItem.url)">
@@ -74,10 +76,10 @@
                             </BModal>
                         </div>
 
-                        <button v-if="!showAgentForm" class="btn btn-normal" @click="showAgentForm = !showAgentForm">{{ $t("addAgent") }}</button>
+                        <button v-if="$root.isAdmin && !showAgentForm" class="btn btn-normal" @click="showAgentForm = !showAgentForm">{{ $t("addAgent") }}</button>
 
                         <!-- Add Agent Form -->
-                        <form v-if="showAgentForm" @submit.prevent="addAgent">
+                        <form v-if="$root.isAdmin && showAgentForm" @submit.prevent="addAgent">
                             <div class="mb-3">
                                 <label for="url" class="form-label">{{ $t("dockgeURL") }}</label>
                                 <input id="url" v-model="agent.url" type="url" class="form-control" required placeholder="http://">

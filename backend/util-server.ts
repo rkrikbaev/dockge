@@ -7,6 +7,7 @@ import { R } from "redbean-node";
 import { verifyPassword } from "./password-hash";
 import fs from "fs";
 import { AgentManager } from "./agent-manager";
+import { hasRole, Role, ROLE_ADMIN } from "../common/roles";
 
 export interface JWTDecoded {
     username : string;
@@ -15,6 +16,7 @@ export interface JWTDecoded {
 
 export interface DockgeSocket extends Socket {
     userID: number;
+    userRole? : Role;
     consoleTerminal? : Terminal;
     instanceManager : AgentManager;
     endpoint : string;
@@ -43,6 +45,22 @@ export function checkLogin(socket : DockgeSocket) {
     if (!socket.userID) {
         throw new Error("You are not logged in.");
     }
+}
+
+/**
+ * Throw if the user is not logged in or the role is lower than required
+ * @param socket Socket of the user
+ * @param requiredRole Minimum role required
+ */
+export function checkRole(socket : DockgeSocket, requiredRole : Role) {
+    checkLogin(socket);
+    if (!hasRole(socket.userRole, requiredRole)) {
+        throw new Error("permissionDenied");
+    }
+}
+
+export function checkAdmin(socket : DockgeSocket) {
+    checkRole(socket, ROLE_ADMIN);
 }
 
 export class ValidationError extends Error {

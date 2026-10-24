@@ -37,6 +37,10 @@ import { AgentSocketHandler } from "./agent-socket-handler";
 import { AgentSocket } from "../common/agent-socket";
 import { ManageAgentSocketHandler } from "./socket-handlers/manage-agent-socket-handler";
 import { Terminal } from "./terminal";
+import { isValidRole, ROLE_ADMIN } from "../common/roles";
+import { UserSocketHandler } from "./socket-handlers/user-socket-handler";
+import { ImageSocketHandler } from "./socket-handlers/image-socket-handler";
+import { ContainerFilesSocketHandler } from "./socket-handlers/container-files-socket-handler";
 
 export class DockgeServer {
     app : Express;
@@ -59,6 +63,9 @@ export class DockgeServer {
     socketHandlerList : SocketHandler[] = [
         new MainSocketHandler(),
         new ManageAgentSocketHandler(),
+        new UserSocketHandler(),
+        new ImageSocketHandler(),
+        new ContainerFilesSocketHandler(),
     ];
 
     agentProxySocketHandler = new AgentProxySocketHandler();
@@ -300,9 +307,10 @@ export class DockgeServer {
             // ***************************
 
             log.debug("auth", "check auto login");
-            if (await Settings.get("disableAuth")) {
+            const autoLoginUser = await Settings.get("disableAuth") ? await R.findOne("user", " role = ? AND active = 1 ORDER BY id ", [ ROLE_ADMIN ]) as User : null;
+            if (autoLoginUser) {
                 log.info("auth", "Disabled Auth: auto login to admin");
-                this.afterLogin(dockgeSocket, await R.findOne("user") as User);
+                this.afterLogin(dockgeSocket, autoLoginUser);
                 dockgeSocket.emit("autoLogin");
             } else {
                 log.debug("auth", "need auth");
@@ -329,9 +337,16 @@ export class DockgeServer {
 
     async afterLogin(socket : DockgeSocket, user : User) {
         socket.userID = user.id;
+        socket.userRole = isValidRole(user.role) ? user.role : undefined;
         socket.join(user.id.toString());
 
         this.sendInfo(socket);
+
+        socket.emit("userInfo", {
+            id: user.id,
+            username: user.username,
+            role: socket.userRole,
+        });
 
         try {
             this.sendStackList();

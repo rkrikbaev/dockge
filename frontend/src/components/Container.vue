@@ -17,12 +17,31 @@
             <div class="col-7">
                 <div class="function">
                     <div class="btn-group me-2" role="group">
-                        <router-link v-if="!isEditMode && (status === 'running' || status === 'healthy')" class="btn btn-normal" :to="terminalRouteLink" disabled="">
+                        <!-- Only images of this host can be downloaded, not of remote agents -->
+                        <button
+                            v-if="$root.isAdmin && !isEditMode && !endpoint && envsubstService.image"
+                            class="btn btn-normal"
+                            :title="$t('downloadImage')"
+                            :disabled="downloadingImage"
+                            @click="downloadImage"
+                        >
+                            <font-awesome-icon :icon="downloadingImage ? 'spinner' : 'download'" :spin="downloadingImage" />
+                        </button>
+                        <!-- Files of the container (this host only, like image download) -->
+                        <router-link
+                            v-if="$root.isAdmin && !isEditMode && !endpoint && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
+                            class="btn btn-normal"
+                            :title="$t('containerFiles')"
+                            :to="{ name: 'containerFiles', params: { stackName: stackName, serviceName: name } }"
+                        >
+                            <font-awesome-icon icon="folder-open" />
+                        </router-link>
+                        <router-link v-if="$root.isAdmin && !isEditMode && (status === 'running' || status === 'healthy')" class="btn btn-normal" :to="terminalRouteLink" disabled="">
                             <font-awesome-icon icon="terminal" />
                             Bash
                         </router-link>
                         <button
-                            v-if="serviceCount > 1 && !isEditMode && status !== 'running' && status !== 'healthy'"
+                            v-if="$root.canOperate && serviceCount > 1 && !isEditMode && status !== 'running' && status !== 'healthy'"
                             class="btn btn-primary"
                             :disabled="processing"
                             @click="startService"
@@ -31,7 +50,7 @@
                             {{ $t("startStack") }}
                         </button>
                         <button
-                            v-if="serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
+                            v-if="$root.canOperate && serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
                             class="btn btn-normal"
                             :disabled="processing"
                             @click="restartService"
@@ -40,7 +59,7 @@
                             {{ $t("restartStack") }}
                         </button>
                         <button
-                            v-if="serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
+                            v-if="$root.canOperate && serviceCount > 1 && !isEditMode && (status === 'running' || status === 'healthy' || status === 'unhealthy')"
                             class="btn btn-normal"
                             :disabled="processing"
                             @click="stopService"
@@ -231,6 +250,7 @@ export default defineComponent({
         return {
             showConfig: false,
             expandedStats: false,
+            downloadingImage: false,
         };
     },
     computed: {
@@ -358,6 +378,20 @@ export default defineComponent({
         }
     },
     methods: {
+        downloadImage() {
+            this.downloadingImage = true;
+            this.$root.getSocket().emit("createImageDownload", this.envsubstService.image, (res) => {
+                this.downloadingImage = false;
+                if (res.ok) {
+                    // Served with "Content-Disposition: attachment", so the page stays
+                    window.location.href = this.$root.backendURL() + res.url;
+                    this.$root.toastSuccess(this.$t("imageDownloadStarted"));
+                } else {
+                    this.$root.toastRes(res);
+                }
+            });
+        },
+
         parsePort(port) {
             if (this.stack.endpoint) {
                 return parseDockerPort(port, this.stack.primaryHostname);
@@ -402,6 +436,12 @@ export default defineComponent({
         width: 100%;
         align-items: center;
         justify-content: end;
+
+        // Wrap instead of overlapping the service name when there are many buttons
+        .btn-group {
+            flex-wrap: wrap;
+            justify-content: end;
+        }
     }
 
     .stats {

@@ -9,6 +9,7 @@ import { generatePasswordHash, needRehashPassword, shake256, SHAKE256_LENGTH, ve
 import { User } from "../models/user";
 import {
     callbackError,
+    checkAdmin,
     checkLogin,
     DockgeSocket,
     doubleCheckPassword,
@@ -20,6 +21,7 @@ import jwt from "jsonwebtoken";
 import { Settings } from "../settings";
 import fs, { promises as fsAsync } from "fs";
 import path from "path";
+import { ROLE_ADMIN } from "../../common/roles";
 
 export class MainSocketHandler extends SocketHandler {
     create(socket : DockgeSocket, server : DockgeServer) {
@@ -42,6 +44,7 @@ export class MainSocketHandler extends SocketHandler {
                 const user = R.dispense("user");
                 user.username = username;
                 user.password = generatePasswordHash(password);
+                user.role = ROLE_ADMIN;
                 await R.store(user);
 
                 server.needSetup = false;
@@ -241,7 +244,7 @@ export class MainSocketHandler extends SocketHandler {
 
         socket.on("getSettings", async (callback) => {
             try {
-                checkLogin(socket);
+                checkAdmin(socket);
                 const data = await Settings.getSettings("general");
 
                 if (fs.existsSync(path.join(server.stacksDir, "global.env"))) {
@@ -256,18 +259,13 @@ export class MainSocketHandler extends SocketHandler {
                 });
 
             } catch (e) {
-                if (e instanceof Error) {
-                    callback({
-                        ok: false,
-                        msg: e.message,
-                    });
-                }
+                callbackError(e, callback);
             }
         });
 
         socket.on("setSettings", async (data, currentPassword, callback) => {
             try {
-                checkLogin(socket);
+                checkAdmin(socket);
 
                 // If currently is disabled auth, don't need to check
                 // Disabled Auth + Want to Disable Auth => No Check
@@ -299,12 +297,7 @@ export class MainSocketHandler extends SocketHandler {
                 server.sendInfo(socket);
 
             } catch (e) {
-                if (e instanceof Error) {
-                    callback({
-                        ok: false,
-                        msg: e.message,
-                    });
-                }
+                callbackError(e, callback);
             }
         });
 

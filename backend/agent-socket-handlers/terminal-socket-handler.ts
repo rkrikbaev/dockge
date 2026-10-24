@@ -1,5 +1,5 @@
 import { DockgeServer } from "../dockge-server";
-import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
+import { callbackError, callbackResult, checkAdmin, checkLogin, DockgeSocket, ValidationError } from "../util-server";
 import { log } from "../log";
 import { InteractiveTerminal, MainTerminal, Terminal } from "../terminal";
 import { Stack } from "../stack";
@@ -128,7 +128,14 @@ export class TerminalSocketHandler extends AgentSocketHandler {
                     throw new ValidationError("Terminal name must be a string.");
                 }
 
-                let buffer : string = Terminal.getTerminal(terminalName)?.getBuffer() ?? "";
+                const terminal = Terminal.getTerminal(terminalName);
+
+                // Output of interactive terminals (console, container shells) is admin only
+                if (terminal instanceof InteractiveTerminal) {
+                    checkAdmin(socket);
+                }
+
+                let buffer : string = terminal?.getBuffer() ?? "";
 
                 if (!buffer) {
                     log.debug("console", "No buffer found.");
