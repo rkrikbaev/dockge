@@ -334,6 +334,23 @@ export default defineComponent({
             return this.envsubstJSONConfig.services[this.name];
         },
 
+        /**
+         * Ports actually published by Docker for the running container(s) of this service.
+         * undefined if not running, then the ports of compose.yaml are shown.
+         */
+        ports() {
+            if (!this.serviceStatus || this.serviceStatus.length === 0 || !this.serviceStatus[0].ports) {
+                return undefined;
+            }
+            const ports = new Set();
+            for (const instance of this.serviceStatus) {
+                for (const port of instance.ports ?? []) {
+                    ports.add(port);
+                }
+            }
+            return [ ...ports ];
+        },
+
         imageName() {
             if (this.envsubstService.image) {
                 return this.envsubstService.image.split(":")[0];

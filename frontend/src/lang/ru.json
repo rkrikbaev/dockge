@@ -174,5 +174,6 @@
     "directoryNotFound": "Папка не найдена.",
     "invalidPath": "Недопустимый путь.",
     "invalidFileName": "Недопустимое имя файла (не больше 100 байт, без «/»).",
-    "uploadFileTooLarge": "Файл слишком большой (максимум 4 ГБ)."
+    "uploadFileTooLarge": "Файл слишком большой (максимум 4 ГБ).",
+    "openInBrowser": "Открыть {0}"
 }

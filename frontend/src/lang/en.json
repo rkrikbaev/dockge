@@ -210,5 +210,6 @@
     "directoryNotFound": "Directory not found.",
     "invalidPath": "Invalid path.",
     "invalidFileName": "Invalid file name (max. 100 bytes, no \"/\").",
-    "uploadFileTooLarge": "The file is too large (max 4 GB)."
+    "uploadFileTooLarge": "The file is too large (max 4 GB).",
+    "openInBrowser": "Open {0}"
 }

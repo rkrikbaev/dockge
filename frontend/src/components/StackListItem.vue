@@ -4,11 +4,31 @@
         <div class="title">
             <span>{{ stackName }}</span>
         </div>
+
+        <!-- Published ports. Not <a>, because links cannot be nested inside the router-link -->
+        <div v-if="portList.length > 0" class="ports">
+            <span
+                v-for="port in visiblePortList"
+                :key="port.display"
+                class="badge bg-secondary port"
+                role="link"
+                tabindex="0"
+                :title="$t('openInBrowser', [ port.url ])"
+                @click.prevent.stop="openPort(port)"
+                @keydown.enter.prevent.stop="openPort(port)"
+            >{{ port.display }}</span>
+            <span v-if="portList.length > visiblePortList.length" class="badge bg-secondary more" :title="hiddenPortTitle">
+                +{{ portList.length - visiblePortList.length }}
+            </span>
+        </div>
     </router-link>
 </template>
 
 <script>
 import Uptime from "./Uptime.vue";
+import { parseDockerPort } from "../../../common/util-common";
+
+const MAX_VISIBLE_PORTS = 3;
 
 export default {
     components: {
@@ -69,7 +89,30 @@ export default {
         },
         stackName() {
             return this.stack.name;
-        }
+        },
+
+        /**
+         * Host to open the ports on: the configured primary hostname or the current host,
+         * for remote agents the host of the agent
+         */
+        portHostname() {
+            if (this.stack.endpoint) {
+                return this.stack.endpoint.replace(/:\d+$/, "");
+            }
+            return this.$root.info.primaryHostname || location.hostname;
+        },
+
+        portList() {
+            return (this.stack.ports ?? []).map((port) => parseDockerPort(port, this.portHostname));
+        },
+
+        visiblePortList() {
+            return this.portList.slice(0, MAX_VISIBLE_PORTS);
+        },
+
+        hiddenPortTitle() {
+            return this.portList.slice(MAX_VISIBLE_PORTS).map((port) => port.display).join(", ");
+        },
     },
     watch: {
         isSelectMode() {
@@ -81,6 +124,10 @@ export default {
 
     },
     methods: {
+        openPort(port) {
+            window.open(port.url, "_blank", "noopener");
+        },
+
         /**
          * Changes the collapsed value of the current stack and saves
          * it to local storage
@@ -175,6 +222,28 @@ export default {
 
 .dim {
     opacity: 0.5;
+}
+
+.ports {
+    margin-left: auto;
+    padding-left: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: end;
+    gap: 4px;
+
+    .badge {
+        font-size: 11px;
+    }
+
+    .port {
+        cursor: pointer;
+
+        &:hover {
+            background-color: $primary !important;
+            color: #000;
+        }
+    }
 }
 
 </style>

@@ -27,6 +27,9 @@ export class Stack {
     protected _composeYAML?: string;
     protected _composeENV?: string;
     protected _configFilePath?: string;
+
+    // Published ports of the running containers, e.g. "8080->80/tcp"
+    protected _ports: string[] = [];
     protected _composeFileName: string = "compose.yaml";
     protected server: DockgeServer;
 
@@ -86,6 +89,7 @@ export class Stack {
             isManagedByDockge: this.isManagedByDockge,
             composeFileName: this._composeFileName,
             endpoint,
+            ports: this._ports,
         };
     }
 
@@ -326,7 +330,60 @@ export class Stack {
             stack._configFilePath = composeStack.ConfigFiles;
         }
 
+        const portList = await this.getPublishedPortList();
+        for (const [ stackName, stack ] of stackList) {
+            stack._ports = portList.get(stackName) ?? [];
+        }
+
         return stackList;
+    }
+
+    /**
+     * Published TCP ports of all running compose containers, from `docker ps`
+     * @returns Map of compose project name => list of "hostPort->containerPort/tcp"
+     */
+    static async getPublishedPortList() : Promise<Map<string, string[]>> {
+        const portList = new Map<string, Set<string>>();
+
+        try {
+            const res = await childProcessAsync.spawn("docker", [
+                "ps",
+                "--filter", "label=com.docker.compose.project",
+                "--format", "{{.Label \"com.docker.compose.project\"}}|{{.Ports}}",
+            ], {
+                encoding: "utf-8",
+            });
+
+            for (const line of res.stdout?.toString().split("\n") ?? []) {
+                const separator = line.indexOf("|");
+                if (separator === -1) {
+                    continue;
+                }
+                const project = line.substring(0, separator);
+
+                // e.g. "0.0.0.0:8080->80/tcp, [::]:8080->80/tcp, 5432/tcp"
+                for (const port of line.substring(separator + 1).split(",")) {
+                    const match = port.trim().match(/:(\d+(?:-\d+)?)->(\d+(?:-\d+)?)\/tcp$/);
+                    if (!match) {
+                        // Not published, or udp (cannot be opened in a browser)
+                        continue;
+                    }
+                    if (!portList.has(project)) {
+                        portList.set(project, new Set());
+                    }
+                    // Without the bind address, so IPv4 and IPv6 bindings are listed once
+                    portList.get(project)?.add(`${match[1]}->${match[2]}/tcp`);
+                }
+            }
+        } catch (e) {
+            log.warn("getPublishedPortList", e);
+        }
+
+        const result = new Map<string, string[]>();
+        for (const [ project, ports ] of portList) {
+            result.set(project, [ ...ports ].sort((a, b) => parseInt(a) - parseInt(b)));
+        }
+        return result;
     }
 
     /**
@@ -522,13 +579,25 @@ export class Stack {
 
             let lines = res.stdout?.toString().split("\n");
 
-            const addLine = (obj: { Service: string, State: string, Name: string, Health: string }) => {
+            type Publisher = { TargetPort : number, PublishedPort : number, Protocol : string };
+            const addLine = (obj: { Service: string, State: string, Name: string, Health: string, Publishers? : Publisher[] }) => {
                 if (!statusList.has(obj.Service)) {
                     statusList.set(obj.Service, []);
                 }
+
+                // Actually published TCP ports, e.g. "32768->80/tcp". Includes ports where compose.yaml has no host port,
+                // and Docker picked one. Not published (PublishedPort 0) and IPv4/IPv6 duplicates are skipped.
+                const ports = new Set<string>();
+                for (const publisher of obj.Publishers ?? []) {
+                    if (publisher.PublishedPort > 0 && publisher.Protocol === "tcp") {
+                        ports.add(`${publisher.PublishedPort}->${publisher.TargetPort}/tcp`);
+                    }
+                }
+
                 statusList.get(obj.Service)?.push({
                     status: obj.Health || obj.State,
-                    name: obj.Name
+                    name: obj.Name,
+                    ports: [ ...ports ],
                 });
             };
 
