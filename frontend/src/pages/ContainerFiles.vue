@@ -70,14 +70,23 @@
 
                 <div v-if="truncated" class="small text-secondary mt-2">{{ $t("directoryTruncated") }}</div>
             </div>
+
+            <!-- Overwrite Dialog -->
+            <BModal :model-value="overwriteFiles !== null" :cancelTitle="$t('cancel')" :okTitle="$t('uploadFiles')" okVariant="danger" @update:model-value="overwriteFiles = null" @ok="startUpload(overwriteFiles)">
+                {{ $t("confirmOverwriteFiles", [ overwriteNames ]) }}
+            </BModal>
         </div>
     </transition>
 </template>
 
 <script>
 import dayjs from "dayjs";
+import { BModal } from "bootstrap-vue-next";
 
 export default {
+    components: {
+        BModal,
+    },
     data() {
         return {
             currentPath: "/",
@@ -87,6 +96,8 @@ export default {
             loading: false,
             error: "",
             uploading: null,
+            // Files waiting for the overwrite confirmation
+            overwriteFiles: null,
         };
     },
     computed: {
@@ -95,6 +106,12 @@ export default {
         },
         serviceName() {
             return this.$route.params.serviceName;
+        },
+        overwriteNames() {
+            return (this.overwriteFiles ?? [])
+                .filter((file) => this.entries.some((entry) => entry.name === file.name))
+                .map((file) => file.name)
+                .join(", ");
         },
         parentPath() {
             const parts = this.currentPath.split("/").filter((part) => part !== "");
@@ -154,17 +171,20 @@ export default {
             });
         },
 
-        async uploadFiles(event) {
+        uploadFiles(event) {
             const files = [ ...event.target.files ];
 
             // Reset, so the same file can be selected again
             event.target.value = "";
 
-            const existing = files.filter((file) => this.entries.some((entry) => entry.name === file.name));
-            if (existing.length > 0 && !confirm(this.$t("confirmOverwriteFiles", [ existing.map((file) => file.name).join(", ") ]))) {
-                return;
+            if (files.some((file) => this.entries.some((entry) => entry.name === file.name))) {
+                this.overwriteFiles = files;
+            } else {
+                this.startUpload(files);
             }
+        },
 
+        async startUpload(files) {
             let index = 0;
             for (const file of files) {
                 index++;

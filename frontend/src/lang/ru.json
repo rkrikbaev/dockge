@@ -208,5 +208,21 @@
     "stackAccessAdd": "Назначить",
     "stackAccessRemove": "Убрать доступ",
     "stackAccessSaved": "Доступ сохранён.",
-    "sandbox": "Запущен из шаблона"
+    "sandbox": "Запущен из шаблона",
+    "cancel": "Отмена",
+    "terminal": "Терминал",
+    "Deployed": "Развёрнуто",
+    "Started": "Запущено",
+    "Stopped": "Остановлено",
+    "Deleted": "Удалено",
+    "Saved": "Сохранено",
+    "Updated": "Обновлено",
+    "Restarted": "Перезапущено",
+    "Downed": "Выключено",
+    "confirmLeaveStack": "Вы редактируете стек. Уйти со страницы без сохранения?",
+    "Current": "Текущий",
+    "CPU": "CPU",
+    "memoryAbbreviated": "Память",
+    "NoNetworksAvailable": "Нет доступных сетей. Сначала добавьте внутренние сети или включите внешние справа.",
+    "GlobalEnv": "Глобальный .env"
 }

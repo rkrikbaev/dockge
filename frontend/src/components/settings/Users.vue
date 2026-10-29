@@ -209,6 +209,6 @@ export default {
 }
 
 .role-select {
-    min-width: 120px;
+    min-width: 170px;
 }
 </style>

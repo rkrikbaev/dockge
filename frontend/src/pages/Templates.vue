@@ -13,11 +13,29 @@
                 </span>
             </div>
 
-            <!-- Template Editor (admin) -->
-            <div v-if="editing" class="shadow-box big-padding mb-3">
-                <form @submit.prevent="saveTemplate">
-                    <div class="row">
-                        <div class="col-lg-6">
+            <!-- Template Editor (admin), same layout as the stack editor -->
+            <div v-if="editing" class="mb-3">
+                <div class="mb-3">
+                    <div class="btn-group me-2" role="group">
+                        <button class="btn btn-primary" :disabled="processing" @click="saveTemplate">
+                            <font-awesome-icon icon="save" class="me-1" />
+                            {{ $t("Save") }}
+                        </button>
+                    </div>
+                    <div class="btn-group me-2" role="group">
+                        <button class="btn btn-normal" :disabled="processing" @click="$refs.importFile.click()">
+                            <font-awesome-icon icon="upload" class="me-1" />
+                            {{ $t("importStack") }}
+                        </button>
+                    </div>
+                    <button class="btn btn-normal" :disabled="processing" @click="editing = null">{{ $t("cancel") }}</button>
+                    <input ref="importFile" type="file" class="d-none" accept=".json,.yaml,.yml,application/json,application/x-yaml,text/yaml" @change="importFile">
+                </div>
+
+                <div class="row">
+                    <div class="col-lg-6">
+                        <h4 class="mb-3">{{ $t("general") }}</h4>
+                        <div class="shadow-box big-padding mb-3">
                             <div class="mb-3">
                                 <label for="template-name" class="form-label">{{ $t("templateName") }}</label>
                                 <input id="template-name" v-model="editing.name" type="text" class="form-control" required @blur="editing.name = editing.name.toLowerCase()">
@@ -27,50 +45,50 @@
                                 <label for="template-description" class="form-label">{{ $t("Description") }}</label>
                                 <input id="template-description" v-model="editing.description" type="text" class="form-control">
                             </div>
-                            <div class="mb-3">
+                            <div>
                                 <label class="form-label">{{ $t("templateOperators") }}</label>
-                                <div v-if="operatorList.length === 0" class="text-secondary small">{{ $t("templateNoOperators") }}</div>
+                                <div v-if="operatorList.length === 0" class="form-text">{{ $t("templateNoOperators") }}</div>
                                 <div v-for="user in operatorList" :key="user.id" class="form-check">
                                     <input :id="'template-operator-' + user.id" v-model="editing.userIDs" class="form-check-input" type="checkbox" :value="user.id">
                                     <label class="form-check-label" :for="'template-operator-' + user.id">{{ user.username }}</label>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-lg-6">
-                            <div class="mb-3">
-                                <label for="template-yaml" class="form-label">compose.yaml</label>
-                                <textarea id="template-yaml" v-model="editing.composeYAML" class="form-control code" rows="14" spellcheck="false" required></textarea>
-                            </div>
-                            <div class="mb-3">
-                                <label for="template-env" class="form-label">.env</label>
-                                <textarea id="template-env" v-model="editing.composeENV" class="form-control code" rows="5" spellcheck="false"></textarea>
-                            </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <h4 class="mb-3">compose.yaml</h4>
+                        <div class="shadow-box mb-3 editor-box edit-mode">
+                            <code-mirror
+                                v-model="editing.composeYAML"
+                                :extensions="extensions"
+                                minimal
+                                wrap="true"
+                                dark="true"
+                                tab="true"
+                            />
+                        </div>
+
+                        <h4 class="mb-3">.env</h4>
+                        <div class="shadow-box mb-3 editor-box edit-mode">
+                            <code-mirror
+                                v-model="editing.composeENV"
+                                :extensions="extensionsEnv"
+                                minimal
+                                wrap="true"
+                                dark="true"
+                                tab="true"
+                            />
                         </div>
                     </div>
-
-                    <div class="d-flex flex-wrap gap-2">
-                        <button class="btn btn-primary" type="submit" :disabled="processing">
-                            <font-awesome-icon icon="save" class="me-1" />
-                            {{ $t("Save") }}
-                        </button>
-                        <button class="btn btn-normal" type="button" :disabled="processing" @click="$refs.importFile.click()">
-                            <font-awesome-icon icon="upload" class="me-1" />
-                            {{ $t("importStack") }}
-                        </button>
-                        <button class="btn btn-normal" type="button" :disabled="processing" @click="editing = null">
-                            {{ $t("cancel") }}
-                        </button>
-                    </div>
-                    <input ref="importFile" type="file" class="d-none" accept=".json,.yaml,.yml,application/json,application/x-yaml,text/yaml" @change="importFile">
-                </form>
+                </div>
             </div>
 
             <!-- Template List -->
-            <div v-if="!loading && templateList.length === 0" class="shadow-box big-padding text-secondary">
+            <div v-if="!editing && !loading && templateList.length === 0" class="shadow-box big-padding text-secondary">
                 {{ $root.isAdmin ? $t("noTemplatesAdmin") : $t("noTemplates") }}
             </div>
 
-            <div class="row">
+            <div v-if="!editing" class="row">
                 <div v-for="item in templateList" :key="item.id" class="col-lg-6 mb-3">
                     <div class="shadow-box big-padding h-100 d-flex flex-column">
                         <h5 class="mb-1">{{ item.name }}</h5>
@@ -91,7 +109,8 @@
                                     {{ $t("editStack") }}
                                 </button>
                                 <button class="btn btn-danger" :disabled="processing" @click="deleteTarget = item">
-                                    <font-awesome-icon icon="trash" />
+                                    <font-awesome-icon icon="trash" class="me-1" />
+                                    {{ $t("Delete") }}
                                 </button>
                             </template>
                         </div>
@@ -124,6 +143,11 @@
 <script>
 import { BModal } from "bootstrap-vue-next";
 import { parseDocument } from "yaml";
+import CodeMirror from "vue-codemirror6";
+import { yaml } from "@codemirror/lang-yaml";
+import { python } from "@codemirror/lang-python";
+import { dracula as editorTheme } from "thememirror";
+import { lineNumbers } from "@codemirror/view";
 
 // Same file format as the stack export in Compose.vue
 const EXPORT_FORMAT = "dockge-stack";
@@ -132,6 +156,14 @@ const IMPORT_MAX_SIZE = 1024 * 1024;
 export default {
     components: {
         BModal,
+        CodeMirror,
+    },
+    setup() {
+        // Same editors as the stack page
+        return {
+            extensions: [ editorTheme, yaml(), lineNumbers() ],
+            extensionsEnv: [ editorTheme, python(), lineNumbers() ],
+        };
     },
     data() {
         return {
@@ -302,8 +334,8 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.code {
-    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 0.875rem;
+.editor-box {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
 }
 </style>

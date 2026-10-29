@@ -244,5 +244,6 @@
     "stackAccessAdd": "Assign",
     "stackAccessRemove": "Remove access",
     "stackAccessSaved": "Access saved.",
-    "sandbox": "Launched from a template"
+    "sandbox": "Launched from a template",
+    "Current": "Current"
 }
