@@ -6,6 +6,7 @@ import { isDev, LooseObject, sleep } from "../common/util-common";
 import semver from "semver";
 import { R } from "redbean-node";
 import dayjs, { Dayjs } from "dayjs";
+import { filterStackList } from "./stack-access";
 
 /**
  * Dockge Instance Manager
@@ -192,8 +193,13 @@ export class AgentManager {
             });
         });
 
-        client.on("agent", (...args : unknown[]) => {
-            this.socket.emit("agent", ...args);
+        client.on("agent", (eventName : unknown, ...args : unknown[]) => {
+            // The agent does not know the user, so its stack list is filtered here
+            const res = args[0] as LooseObject | undefined;
+            if (eventName === "stackList" && res?.stackList) {
+                res.stackList = filterStackList(this.socket, endpoint, res.stackList);
+            }
+            this.socket.emit("agent", eventName, ...args);
         });
 
         client.on("info", (res) => {

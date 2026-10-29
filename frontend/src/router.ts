@@ -8,6 +8,7 @@ import Console from "./pages/Console.vue";
 import Compose from "./pages/Compose.vue";
 import ContainerTerminal from "./pages/ContainerTerminal.vue";
 import ContainerFiles from "./pages/ContainerFiles.vue";
+import Templates from "./pages/Templates.vue";
 
 const Settings = () => import("./pages/Settings.vue");
 
@@ -61,6 +62,10 @@ const routes = [
                                 name: "containerTerminalEndpoint",
                             },
                         ]
+                    },
+                    {
+                        path: "/templates",
+                        component: Templates,
                     },
                     {
                         path: "/console",

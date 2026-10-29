@@ -4,7 +4,17 @@ import { log } from "../log";
 import { callbackError, checkLogin, checkRole, DockgeSocket } from "../util-server";
 import { AgentSocket } from "../../common/agent-socket";
 import { ALL_ENDPOINTS, LooseObject } from "../../common/util-common";
-import { getAgentEventRole, hasRole, ROLE_ADMIN } from "../../common/roles";
+import { getAgentEventRole, hasRole, ROLE_ADMIN, STACK_EVENT_LIST, TERMINAL_EVENT_LIST } from "../../common/roles";
+import {
+    canAccessTerminal,
+    checkStackAccess,
+    filterDockerStats,
+    getContainerProjectMap,
+    getSandboxNames,
+    normalizeEndpoint,
+    refreshStackAccess,
+    removeStack
+} from "../stack-access";
 
 export class AgentProxySocketHandler extends SocketHandler {
 
@@ -26,24 +36,14 @@ export class AgentProxySocketHandler extends SocketHandler {
                 // (remote agents only know the agent account, not the actual user)
                 try {
                     checkRole(socket, getAgentEventRole(eventName));
+                    await this.checkStackPermission(socket, endpoint, eventName, args);
                 } catch (e) {
                     log.warn("agent", `User ${socket.userID} (${socket.userRole}) is not allowed to call ${eventName}`);
                     callbackError(e, args[args.length - 1]);
                     return;
                 }
 
-                // .env may contain secrets, only admin can read it
-                if (eventName === "getStack" && !hasRole(socket.userRole, ROLE_ADMIN)) {
-                    const callback = args[args.length - 1];
-                    if (typeof(callback) === "function") {
-                        args[args.length - 1] = (res : LooseObject) => {
-                            if (res?.stack) {
-                                res.stack.composeENV = "";
-                            }
-                            callback(res);
-                        };
-                    }
-                }
+                this.wrapCallback(socket, server, endpoint, eventName, args);
 
                 if (endpoint === ALL_ENDPOINTS) {      // Send to all endpoints
                     log.debug("agent", "Sending to all endpoints: " + eventName);
@@ -63,6 +63,86 @@ export class AgentProxySocketHandler extends SocketHandler {
                 }
             }
         });
+    }
+
+    /**
+     * Operators and viewers can only access the stacks assigned to them, see stack-access.ts
+     */
+    async checkStackPermission(socket : DockgeSocket, endpoint : string, eventName : string, args : unknown[]) {
+        if (hasRole(socket.userRole, ROLE_ADMIN)) {
+            return;
+        }
+
+        // Only the stack list can be requested from all endpoints (it is filtered per endpoint)
+        if (endpoint === ALL_ENDPOINTS) {
+            if (eventName !== "requestStackList") {
+                throw new Error("permissionDenied");
+            }
+            return;
+        }
+
+        const target = normalizeEndpoint(socket, endpoint);
+
+        if (STACK_EVENT_LIST.includes(eventName)) {
+            checkStackAccess(socket, target, args[0]);
+
+            // Operators can only delete the stacks launched from a template
+            if (eventName === "deleteStack" && (target !== "" || !(await getSandboxNames()).has(args[0] as string))) {
+                throw new Error("permissionDenied");
+            }
+        } else if (TERMINAL_EVENT_LIST.includes(eventName)) {
+            const terminalEndpoint = target === "" ? socket.endpoint : endpoint;
+            if (!canAccessTerminal(socket, target, terminalEndpoint, args[0])) {
+                throw new Error("permissionDenied");
+            }
+        }
+    }
+
+    /**
+     * Change the result of some events before it is sent to the user
+     */
+    wrapCallback(socket : DockgeSocket, server : DockgeServer, endpoint : string, eventName : string, args : unknown[]) {
+        const callback = args[args.length - 1];
+        if (typeof(callback) !== "function" || endpoint === ALL_ENDPOINTS) {
+            return;
+        }
+        const target = normalizeEndpoint(socket, endpoint);
+        const isAdmin = hasRole(socket.userRole, ROLE_ADMIN);
+
+        if (eventName === "getStack" && !isAdmin) {
+            // .env may contain secrets, only admin can read it
+            args[args.length - 1] = (res : LooseObject) => {
+                if (res?.stack) {
+                    res.stack.composeENV = "";
+                }
+                callback(res);
+            };
+
+        } else if (eventName === "dockerStats" && !isAdmin) {
+            // docker stats lists the containers of all stacks
+            args[args.length - 1] = async (res : LooseObject) => {
+                if (res?.dockerStats) {
+                    const containerProjectMap = target === "" ? await getContainerProjectMap() : undefined;
+                    res.dockerStats = filterDockerStats(socket, target, res.dockerStats, containerProjectMap);
+                }
+                callback(res);
+            };
+
+        } else if (eventName === "deleteStack" && typeof(args[0]) === "string") {
+            // Remove the assignments, so a new stack with the same name is not visible to the same users
+            const stackName = args[0];
+            args[args.length - 1] = async (res : LooseObject) => {
+                if (res?.ok) {
+                    try {
+                        const userIDs = await removeStack(target, stackName);
+                        await refreshStackAccess(server, userIDs);
+                    } catch (e) {
+                        log.error("agent", e);
+                    }
+                }
+                callback(res);
+            };
+        }
     }
 
     create(socket : DockgeSocket, server : DockgeServer) {

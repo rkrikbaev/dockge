@@ -32,6 +32,7 @@ export default defineComponent({
             username: null,
             userRole: null,
             composeTemplate: "",
+            templateDraft: null,
 
             stackList: {},
 

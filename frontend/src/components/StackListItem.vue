@@ -1,8 +1,9 @@
 <template>
     <router-link :to="url" :class="{ 'dim' : !stack.isManagedByDockge }" class="item">
         <Uptime :stack="stack" :fixed-width="true" class="me-2" />
-        <div class="title">
+        <div class="title" :title="stackName">
             <span>{{ stackName }}</span>
+            <font-awesome-icon v-if="stack.isSandbox" icon="layer-group" class="ms-2 text-secondary" :title="$t('sandbox')" />
         </div>
 
         <!-- Published ports. Not <a>, because links cannot be nested inside the router-link -->
@@ -195,6 +196,12 @@ export default {
     }
     .title {
         margin-top: -4px;
+
+        // Long names (e.g. stacks launched from a template) are cut, the full name is in the tooltip
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     .endpoint {
         font-size: 12px;
@@ -225,6 +232,7 @@ export default {
 }
 
 .ports {
+    flex-shrink: 0;
     margin-left: auto;
     padding-left: 8px;
     display: flex;

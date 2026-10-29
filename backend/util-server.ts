@@ -17,6 +17,8 @@ export interface JWTDecoded {
 export interface DockgeSocket extends Socket {
     userID: number;
     userRole? : Role;
+    // Stacks a non-admin user can access, see stack-access.ts
+    stackAccess? : Set<string>;
     consoleTerminal? : Terminal;
     instanceManager : AgentManager;
     endpoint : string;

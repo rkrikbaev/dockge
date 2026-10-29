@@ -60,10 +60,12 @@ export const AGENT_EVENT_ROLE : Record<string, Role> = {
     stopService: ROLE_OPERATOR,
     restartService: ROLE_OPERATOR,
 
+    // Operators can only delete stacks launched from a template, checked in the agent proxy
+    deleteStack: ROLE_OPERATOR,
+
     // Admin only
     deployStack: ROLE_ADMIN,
     saveStack: ROLE_ADMIN,
-    deleteStack: ROLE_ADMIN,
     interactiveTerminal: ROLE_ADMIN,
     mainTerminal: ROLE_ADMIN,
     terminalInput: ROLE_ADMIN,
@@ -72,3 +74,31 @@ export const AGENT_EVENT_ROLE : Record<string, Role> = {
 export function getAgentEventRole(eventName : string) : Role {
     return AGENT_EVENT_ROLE[eventName] ?? ROLE_ADMIN;
 }
+
+/**
+ * Agent events with a stack name as the first argument
+ * Operators and viewers can only call them for the stacks assigned to them
+ */
+export const STACK_EVENT_LIST = [
+    "getStack",
+    "serviceStatusList",
+    "startStack",
+    "stopStack",
+    "restartStack",
+    "updateStack",
+    "downStack",
+    "deleteStack",
+    "startService",
+    "stopService",
+    "restartService",
+    "leaveCombinedTerminal",
+    "interactiveTerminal",
+];
+
+/**
+ * Agent events with a terminal name as the first argument
+ */
+export const TERMINAL_EVENT_LIST = [
+    "terminalJoin",
+    "terminalResize",
+];

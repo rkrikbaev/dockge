@@ -67,6 +67,10 @@
                         <BDropdownItem @click="exportStack(false)">
                             {{ $t("exportComposeOnly") }}
                         </BDropdownItem>
+                        <BDropdownItem @click="saveAsTemplate">
+                            <font-awesome-icon icon="layer-group" class="me-1" />
+                            {{ $t("saveAsTemplate") }}
+                        </BDropdownItem>
                     </BDropdown>
                     <!-- Non-admin users cannot read .env, so only compose.yaml can be exported -->
                     <button v-else class="btn btn-normal" :disabled="processing" @click="exportStack(false)">
@@ -82,7 +86,8 @@
                 <input ref="importFile" type="file" class="d-none" accept=".json,.yaml,.yml,application/json,application/x-yaml,text/yaml" @change="importStack">
 
                 <button v-if="isEditMode && !isAdd" class="btn btn-normal" :disabled="processing" @click="discardStack">{{ $t("discardStack") }}</button>
-                <button v-if="!isEditMode && $root.isAdmin" class="btn btn-danger" :disabled="processing" @click="showDeleteDialog = !showDeleteDialog">
+                <!-- Operators can delete the stacks launched from a template -->
+                <button v-if="!isEditMode && ($root.isAdmin || ($root.canOperate && globalStack?.isSandbox))" class="btn btn-danger" :disabled="processing" @click="showDeleteDialog = !showDeleteDialog">
                     <font-awesome-icon icon="trash" class="me-1" />
                     {{ $t("deleteStack") }}
                 </button>
@@ -178,6 +183,8 @@
                             </div>
                         </div>
                     </div>
+
+                    <StackAccess v-if="$root.canOperate && !isAdd && !isEditMode && stack.name" :endpoint="endpoint" :stack-name="stack.name" />
 
                     <!-- Combined Terminal Output -->
                     <div v-show="!isEditMode">
@@ -802,6 +809,15 @@ export default {
 
         enableEditMode() {
             this.isEditMode = true;
+        },
+
+        saveAsTemplate() {
+            this.$root.templateDraft = {
+                name: this.stack.name.substring(0, 40),
+                composeYAML: this.stack.composeYAML,
+                composeENV: this.stack.composeENV,
+            };
+            this.$router.push("/templates");
         },
 
         /**

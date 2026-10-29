@@ -133,6 +133,8 @@ export class UserSocketHandler extends SocketHandler {
                 const userID = user.id;
                 const username = user.username;
                 await R.trash(user);
+                await R.knex("stack_access").where("user_id", userID).delete();
+                await R.knex("template_access").where("user_id", userID).delete();
                 server.disconnectAllSocketClients(userID);
 
                 log.info("user", `User ${socket.userID} deleted user ${username}`);

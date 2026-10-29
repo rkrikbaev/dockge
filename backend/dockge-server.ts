@@ -41,6 +41,9 @@ import { isValidRole, ROLE_ADMIN } from "../common/roles";
 import { UserSocketHandler } from "./socket-handlers/user-socket-handler";
 import { ImageSocketHandler } from "./socket-handlers/image-socket-handler";
 import { ContainerFilesSocketHandler } from "./socket-handlers/container-files-socket-handler";
+import { StackAccessSocketHandler } from "./socket-handlers/stack-access-socket-handler";
+import { TemplateSocketHandler } from "./socket-handlers/template-socket-handler";
+import { canAccessStack, getSandboxNames, loadStackAccess } from "./stack-access";
 
 export class DockgeServer {
     app : Express;
@@ -66,6 +69,8 @@ export class DockgeServer {
         new UserSocketHandler(),
         new ImageSocketHandler(),
         new ContainerFilesSocketHandler(),
+        new StackAccessSocketHandler(),
+        new TemplateSocketHandler(),
     ];
 
     agentProxySocketHandler = new AgentProxySocketHandler();
@@ -340,6 +345,12 @@ export class DockgeServer {
         socket.userRole = isValidRole(user.role) ? user.role : undefined;
         socket.join(user.id.toString());
 
+        try {
+            await loadStackAccess(socket);
+        } catch (e) {
+            log.error("server", e);
+        }
+
         this.sendInfo(socket);
 
         socket.emit("userInfo", {
@@ -604,6 +615,7 @@ export class DockgeServer {
         let socketList = this.io.sockets.sockets.values();
 
         let stackList;
+        let sandboxNames;
 
         for (let socket of socketList) {
             let dockgeSocket = socket as DockgeSocket;
@@ -614,12 +626,20 @@ export class DockgeServer {
                 // Get the list only if there is a logged in user
                 if (!stackList) {
                     stackList = await Stack.getStackList(this, useCache);
+                    sandboxNames = await getSandboxNames();
                 }
 
                 let map : Map<string, object> = new Map();
 
                 for (let [ stackName, stack ] of stackList) {
-                    map.set(stackName, stack.toSimpleJSON(dockgeSocket.endpoint));
+                    // Operators and viewers only get the stacks assigned to them
+                    if (!canAccessStack(dockgeSocket, "", stackName)) {
+                        continue;
+                    }
+                    map.set(stackName, {
+                        ...stack.toSimpleJSON(dockgeSocket.endpoint),
+                        isSandbox: sandboxNames?.has(stackName) ?? false,
+                    });
                 }
 
                 log.debug("server", "Send stack list to user: " + dockgeSocket.id + " (" + dockgeSocket.endpoint + ")");

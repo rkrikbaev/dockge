@@ -27,6 +27,12 @@
                     </router-link>
                 </li>
 
+                <li v-if="$root.loggedIn && $root.canOperate" class="nav-item me-2">
+                    <router-link to="/templates" class="nav-link">
+                        <font-awesome-icon icon="layer-group" /> {{ $t("templates") }}
+                    </router-link>
+                </li>
+
                 <li v-if="$root.loggedIn && $root.isAdmin" class="nav-item me-2">
                     <router-link to="/console" class="nav-link">
                         <font-awesome-icon icon="terminal" /> {{ $t("console") }}
