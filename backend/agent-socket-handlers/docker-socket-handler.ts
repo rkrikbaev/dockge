@@ -3,6 +3,7 @@ import { DockgeServer } from "../dockge-server";
 import { callbackError, callbackResult, checkLogin, DockgeSocket, ValidationError } from "../util-server";
 import { Stack } from "../stack";
 import { AgentSocket } from "../../common/agent-socket";
+import { isSandbox } from "../stack-access";
 
 export class DockerSocketHandler extends AgentSocketHandler {
     create(socket : DockgeSocket, server : DockgeServer, agentSocket : AgentSocket) {
@@ -48,8 +49,11 @@ export class DockerSocketHandler extends AgentSocketHandler {
                 }
                 const stack = await Stack.getStack(server, name);
 
+                // Sandboxes keep no data, so their volumes (e.g. a cloned repository) are removed too
+                const removeVolumes = await isSandbox(name);
+
                 try {
-                    await stack.delete(socket);
+                    await stack.delete(socket, removeVolumes);
                 } catch (e) {
                     server.sendStackList();
                     throw e;

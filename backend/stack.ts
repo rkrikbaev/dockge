@@ -229,9 +229,14 @@ export class Stack {
         return exitCode;
     }
 
-    async delete(socket: DockgeSocket) : Promise<number> {
+    /**
+     * @param socket The socket of the user
+     * @param removeVolumes Also remove the named volumes of the stack (used for the stacks launched from a template)
+     */
+    async delete(socket: DockgeSocket, removeVolumes = false) : Promise<number> {
         const terminalName = getComposeTerminalName(socket.endpoint, this.name);
-        let exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("down", "--remove-orphans"), this.path);
+        const extraOptions = removeVolumes ? [ "--remove-orphans", "--volumes" ] : [ "--remove-orphans" ];
+        let exitCode = await Terminal.exec(this.server, socket, terminalName, "docker", this.getComposeOptions("down", ...extraOptions), this.path);
         if (exitCode !== 0) {
             throw new Error("Failed to delete, please check the terminal output for more information.");
         }

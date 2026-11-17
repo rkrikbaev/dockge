@@ -273,7 +273,7 @@
 
             <!-- Delete Dialog -->
             <BModal v-model="showDeleteDialog" :cancelTitle="$t('cancel')" :okTitle="$t('deleteStack')" okVariant="danger" @ok="deleteDialog">
-                {{ $t("deleteStackMsg") }}
+                {{ globalStack?.isSandbox ? $t("deleteSandboxMsg") : $t("deleteStackMsg") }}
             </BModal>
         </div>
     </transition>

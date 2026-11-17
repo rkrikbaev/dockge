@@ -24,6 +24,7 @@
     "saveStackDraft": "Сохранить",
     "notAvailableShort": "Н/Д",
     "deleteStackMsg": "Вы уверены что хотите удалить этот стек?",
+    "deleteSandboxMsg": "Удалить этот стек? Он запущен из шаблона, поэтому вместе с контейнерами будут удалены его тома и все данные в них. Это действие нельзя отменить.",
     "stackNotManagedByDockgeMsg": "Данный стек не управляется Dockge.",
     "primaryHostname": "Имя хоста",
     "general": "Основные",

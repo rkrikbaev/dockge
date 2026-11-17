@@ -230,6 +230,14 @@ export async function refreshStackAccess(server : DockgeServer, userIDs : number
 }
 
 /**
+ * Check if a local stack was launched from a template
+ */
+export async function isSandbox(stackName : string) : Promise<boolean> {
+    const row = await R.knex("sandbox").where("stack_name", stackName).first();
+    return row !== undefined;
+}
+
+/**
  * Names of the local stacks launched from a template
  */
 export async function getSandboxNames() : Promise<Set<string>> {

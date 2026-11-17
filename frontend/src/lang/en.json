@@ -25,6 +25,7 @@
     "saveStackDraft": "Save",
     "notAvailableShort": "N/A",
     "deleteStackMsg": "Are you sure you want to delete this stack?",
+    "deleteSandboxMsg": "Delete this stack? It was launched from a template, so its volumes and all data in them are deleted together with the containers. This cannot be undone.",
     "cancel": "Cancel",
     "stackNotManagedByDockgeMsg": "This stack is not managed by Dockge.",
     "primaryHostname": "Primary Hostname",
